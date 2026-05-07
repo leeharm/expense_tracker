@@ -34,7 +34,13 @@ class _RegisterScreenState extends State<RegisterScreen> {
       return;
     }
 
-    usersBox.put(email, {'email': email, 'password': password});
+    final now = DateTime.now().toIso8601String();
+    usersBox.put(email, {
+      'email': email,
+      'password': password,
+      'createdAt': now,
+      'lastLoginAt': now,
+    });
     showMessage('Account created. You can log in now.');
     Navigator.pop(context);
   }

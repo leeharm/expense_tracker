@@ -1,3 +1,4 @@
+import 'package:expense_tracker/views/assistant_screen.dart';
 import 'package:expense_tracker/views/model/expense.dart';
 import 'package:expense_tracker/views/expensescreen.dart';
 import 'package:fl_chart/fl_chart.dart';
@@ -15,6 +16,7 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
+  final usersBox = Hive.box('usersBox');
   final expenseBox = Hive.box('expensesBox');
   final monthlyBox = Hive.box('monthlyBox');
 
@@ -37,6 +39,18 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   String get currentMonth => DateTime.now().toString().substring(0, 7);
+  DateTime get accountCreatedAt {
+    final user = usersBox.get(widget.userEmail);
+    if (user is Map) {
+      final createdAt = DateTime.tryParse(user['createdAt']?.toString() ?? '');
+      if (createdAt != null) return createdAt;
+    }
+    if (expenses.isNotEmpty) {
+      final sorted = [...expenses]..sort((a, b) => a.date.compareTo(b.date));
+      return sorted.first.date;
+    }
+    return DateTime.now();
+  }
 
   double get totalSpent => expenses.fold(0, (a, b) => a + b.amount);
   double get currentMonthSpent =>
@@ -68,20 +82,6 @@ class _HomeScreenState extends State<HomeScreen> {
     for (final expense in currentMonthExpenses) {
       totals.update(
         expense.category,
-        (value) => value + expense.amount,
-        ifAbsent: () => expense.amount,
-      );
-    }
-    return totals;
-  }
-
-  Map<String, double> get monthlyTotals {
-    final totals = <String, double>{};
-    for (final expense in expenses) {
-      final key =
-          '${expense.date.year}-${expense.date.month.toString().padLeft(2, '0')}';
-      totals.update(
-        key,
         (value) => value + expense.amount,
         ifAbsent: () => expense.amount,
       );
@@ -146,6 +146,7 @@ class _HomeScreenState extends State<HomeScreen> {
     monthlyBox.put('${widget.userEmail}:$currentMonth', {
       'userEmail': widget.userEmail,
       'month': currentMonth,
+      'accountCreatedAt': accountCreatedAt.toIso8601String(),
       'salary': widget.salary,
       'spent': currentMonthSpent,
       'saved': currentMonthSaved,
@@ -214,7 +215,26 @@ class _HomeScreenState extends State<HomeScreen> {
     };
 
     return Scaffold(
-      appBar: AppBar(title: const Text("Expense Tracker")),
+      appBar: AppBar(
+        title: const Text("Expense Tracker"),
+        actions: [
+          IconButton(
+            tooltip: 'Assistant',
+            icon: const Icon(Icons.support_agent),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => AssistantScreen(
+                    userEmail: widget.userEmail,
+                    salary: widget.salary,
+                  ),
+                ),
+              );
+            },
+          ),
+        ],
+      ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: openAddExpense,
         icon: const Icon(Icons.add),
@@ -225,6 +245,8 @@ class _HomeScreenState extends State<HomeScreen> {
         child: ListView(
           padding: const EdgeInsets.all(16),
           children: [
+            _TrackingSinceCard(createdAt: accountCreatedAt),
+            const SizedBox(height: 12),
             _SummaryHeader(
               salary: money(widget.salary),
               spent: money(currentMonthSpent),
@@ -308,6 +330,27 @@ class _HomeScreenState extends State<HomeScreen> {
             const SizedBox(height: 80),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _TrackingSinceCard extends StatelessWidget {
+  final DateTime createdAt;
+
+  const _TrackingSinceCard({required this.createdAt});
+
+  @override
+  Widget build(BuildContext context) {
+    final days = DateTime.now().difference(createdAt).inDays + 1;
+    final date =
+        '${createdAt.year}-${createdAt.month.toString().padLeft(2, '0')}-${createdAt.day.toString().padLeft(2, '0')}';
+
+    return Card(
+      child: ListTile(
+        leading: const Icon(Icons.calendar_month),
+        title: Text('Tracking since $date'),
+        subtitle: Text('$days day(s) of account history stored locally'),
       ),
     );
   }

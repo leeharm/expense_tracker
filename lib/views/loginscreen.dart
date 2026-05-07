@@ -38,6 +38,10 @@ class _LoginScreenState extends State<LoginScreen> {
       return;
     }
 
+    final userData = Map<String, dynamic>.from(user);
+    userData['createdAt'] ??= DateTime.now().toIso8601String();
+    userData['lastLoginAt'] = DateTime.now().toIso8601String();
+    usersBox.put(email, userData);
     settingsBox.put('currentUser', email);
     Navigator.pushReplacement(
       context,
